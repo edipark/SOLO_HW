@@ -1,0 +1,10 @@
+{
+  "teacher_checkpoint": "/home/hyunjin/IsaacLab/logs/skrl/dextra_amp_walk/task+amp_compliance/checkpoints/best_agent.pt",
+  "estimator_checkpoint": "/home/hyunjin/IsaacLab/logs/solo_estimator/lstm/LSTM_w50_compliance/best_estimator.pt",
+  "estimator_type": "LSTM",
+  "window": 50,
+  "encoder_dim": 24,
+  "priv_dim": 19,
+  "obs_dim": 43,
+  "action_dim": 12
+}

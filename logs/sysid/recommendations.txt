@@ -1,0 +1,64 @@
+==============================================================================
+SysID Recommendations for ImplicitActuatorCfg
+==============================================================================
+
+Joint inertias extracted from: /home/hyunjin/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/direct/SOLO_DEXTRA/assets/Dextra_lowerbody.urdf
+Current sim:  stiffness=11.1,  damping=1.1
+
+Joint                        J(kg·m²)       ωn      ζ   BW(Hz)    k_rec    d_rec   sp(r/s)   d_alt
+------------------------------------------------------------------------------------------------
+J 0 L_HipYaw_Joint           2.86e-04    83.42  0.990     8.67    1.993   0.0473     42.14  0.2634 ⚠
+J 2 L_HipRoll_Joint          5.13e-03    65.56  0.998     6.73   22.047   0.6713     32.84  0.3380 ⚠
+J 4 L_Thigh_Joint            5.17e-03   158.50  2.746    16.14  129.867   4.5007     28.85  0.3847 ⚠
+J 6 L_Calf_Joint             1.19e-03    72.63  0.999     7.45    6.255   0.1721     36.35  0.3053 ⚠
+J 8 L_AnklePitch_Joint       1.98e-04   100.98  0.996    10.40    2.019   0.0398     50.69  0.2190 ⚠
+J10 L_AnkleRoll_Joint        2.67e-05   134.44  0.998    13.81    0.482   0.0072     67.35  0.1648 ⚠
+------------------------------------------------------------------------------------------------
+MEAN                                    102.59  1.288    10.54   27.111   0.9064
+MEDIAN                                   92.20  0.998             4.137   0.1097
+
+RECOMMENDED (use median for robustness):
+  ImplicitActuatorCfg(
+      stiffness = 4.137,   # was 11.1
+      damping   = 0.1097,   # was 1.1
+      effort_limit = 1.8,             # AX-18A stall torque
+      ...
+  )
+
+⚠ FLAGGED JOINTS (k_rec unreliable — use d_alt with k=K_AX18A_HW):
+  J 0 L_HipYaw_Joint        : fit extrapolated beyond coherent band; k_rec deviates >3× from K_AX18A_HW=11.1
+        → use  stiffness=11.1  damping=0.2634  (anchored to hardware k, d inferred from slow_pole=42.1 r/s)
+  J 2 L_HipRoll_Joint       : fit extrapolated beyond coherent band
+        → use  stiffness=11.1  damping=0.3380  (anchored to hardware k, d inferred from slow_pole=32.8 r/s)
+  J 4 L_Thigh_Joint         : fit extrapolated beyond coherent band; k_rec deviates >3× from K_AX18A_HW=11.1
+        → use  stiffness=11.1  damping=0.3847  (anchored to hardware k, d inferred from slow_pole=28.9 r/s)
+  J 6 L_Calf_Joint          : fit extrapolated beyond coherent band
+        → use  stiffness=11.1  damping=0.3053  (anchored to hardware k, d inferred from slow_pole=36.4 r/s)
+  J 8 L_AnklePitch_Joint    : fit extrapolated beyond coherent band; k_rec deviates >3× from K_AX18A_HW=11.1
+        → use  stiffness=11.1  damping=0.2190  (anchored to hardware k, d inferred from slow_pole=50.7 r/s)
+  J10 L_AnkleRoll_Joint     : fit extrapolated beyond coherent band; k_rec deviates >3× from K_AX18A_HW=11.1
+        → use  stiffness=11.1  damping=0.1648  (anchored to hardware k, d inferred from slow_pole=67.4 r/s)
+
+  slow_pole = ωn/(2ζ) = k/d is J-free and directly observable from
+  the Bode rolloff slope.  Individual k and d require accurate J (CRB).
+  For ⚠ joints: trust slow_pole; anchor k=11.1 (hardware compliance);
+  infer d = k/slow_pole.  Alternatively, re-run with step-response mode
+  (less body-mode sensitive for heavily overdamped joints).
+
+NOTE: J values are CRB (Composite Rigid Body) — full downstream subtree.
+      effort_limit=1.8 N·m models the AX-18A compliance saturation.
+      The stiffness above corresponds to the slope zone (slope=32 default).
+      Deadband (~0.3°) is negligible and ignored.
+
+[Mirrored to symmetric partners (--mirror)]
+Joint                        J(kg·m²)       ωn      ζ   BW(Hz)    k_rec    d_rec       source
+------------------------------------------------------------------------------------------
+J 1 R_HipYaw_Joint           2.86e-04    83.42  0.990     8.67    1.993   0.0473   mirror J 0
+J 3 R_HipRoll_Joint          5.13e-03    65.56  0.998     6.73   22.047   0.6713   mirror J 2
+J 5 R_Thigh_Joint            5.17e-03   158.50  2.746    16.14  129.867   4.5007   mirror J 4
+J 7 R_Calf_Joint             1.19e-03    72.63  0.999     7.45    6.255   0.1721   mirror J 6
+J 9 R_AnklePitch_Joint       1.98e-04   100.98  0.996    10.40    2.019   0.0398   mirror J 8
+J11 R_AnkleRoll_Joint        2.67e-05   134.44  0.998    13.81    0.482   0.0072   mirror J10
+
+NOTE: mirrored joints share measured k_eff/d_eff (bilateral symmetry).
+      Verify URDF J_partner ≈ J_primary before using these values.

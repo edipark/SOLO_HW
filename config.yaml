@@ -1,0 +1,56 @@
+# SOLO Deployment Configuration
+# ================================
+# DEXTRA lower-body robot with 12× Dynamixel AX-18A on Raspberry Pi 5
+
+control:
+  frequency_hz: 30          # Control loop frequency (matches sim decimation=4 @ 120Hz)
+  action_scale: 2.6180      # 5π/6 — maps [-1,1] action to [-2.618, 2.618] rad (same as sim)
+  action_offset: 0.0        # Symmetric joint range → zero offset
+  # Optional per-joint sign inversion for policy action -> target conversion.
+  # Default behavior: if omitted, every joint uses +1 (no inversion).
+  action_sign_by_joint_name:
+    R_Thigh_Joint: -1
+    L_Calf_Joint: -1
+    L_AnklePitch_Joint: -1
+
+dynamixel:
+  port: "/dev/ttyUSB0"      # U2D2 USB adapter
+  baudrate: 1000000          # 1 Mbps (AX-18A max)
+  protocol_version: 1.0
+  apply_hardware_config: true # Write AX-18A RAM registers on connect
+  compliance_margin: 1        # AX-18A register units; sim margin = 0.29° = 1 unit
+  compliance_slope: 64        # Matches AX18AActuatorCfg.compliance_slope
+  punch: 32                   # Matches AX18AActuatorCfg.punch default
+  torque_limit_ratio: 0.2    # Matches sim effort_limit = 1.8 * 0.96
+
+model:
+  window: 50                 # LSTM history window (must match training)
+  teacher_onnx: "models/teacher_policy.onnx"
+  estimator_onnx: "models/lstm_estimator.onnx"
+
+safety:
+  watchdog_warn_ms: 40       # Warn if loop exceeds this
+  watchdog_stop_ms: 200      # Emergency stop if loop exceeds this
+  max_position_rad: 2.6180   # 5π/6 — absolute position limit (matches sim)
+  startup_hold_sec: 2.0      # Hold default pose before starting policy
+
+velocity_filter:
+  type: "ema"                # Exponential Moving Average for finite-diff velocity
+  alpha: 0.2                 # EMA smoothing factor (0=max smoothing, 1=no filter)
+
+# Joint configuration: order must match simulation
+# AX-18A: 300° range (0-1023), center at 512
+# RAD_PER_UNIT = 5.23599 / 1024 ≈ 0.005115
+joints:
+  - { name: "L_HipYaw_Joint",     servo_id:  1, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "R_HipYaw_Joint",     servo_id:  7, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "L_HipRoll_Joint",    servo_id:  2, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "R_HipRoll_Joint",    servo_id:  8, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "L_Thigh_Joint",      servo_id:  3, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "R_Thigh_Joint",      servo_id:  9, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "L_Calf_Joint",       servo_id:  4, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "R_Calf_Joint",       servo_id: 10, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "L_AnklePitch_Joint", servo_id:  5, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "R_AnklePitch_Joint", servo_id: 11, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "L_AnkleRoll_Joint",  servo_id:  6, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }
+  - { name: "R_AnkleRoll_Joint",  servo_id: 12, offset_raw: 512, lower_rad: -2.6180, upper_rad: 2.6180 }

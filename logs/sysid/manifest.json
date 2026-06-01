@@ -1,0 +1,49 @@
+{
+  "mode": "chirp",
+  "step_deg": 10.0,
+  "step_rad": 0.17453292519943295,
+  "sample_hz": 100,
+  "duration_s": 15.0,
+  "hold_before_s": 0.5,
+  "hold_between_s": 0.8,
+  "joint_names": [
+    "L_HipYaw_Joint",
+    "R_HipYaw_Joint",
+    "L_HipRoll_Joint",
+    "R_HipRoll_Joint",
+    "L_Thigh_Joint",
+    "R_Thigh_Joint",
+    "L_Calf_Joint",
+    "R_Calf_Joint",
+    "L_AnklePitch_Joint",
+    "R_AnklePitch_Joint",
+    "L_AnkleRoll_Joint",
+    "R_AnkleRoll_Joint"
+  ],
+  "baseline_rad": [
+    -0.005118267610669136,
+    0.0,
+    -0.010236535221338272,
+    -0.010236535221338272,
+    -0.010236535221338272,
+    -0.020473070442676544,
+    0.0,
+    0.0,
+    0.0,
+    -0.005118267610669136,
+    -0.010236535221338272,
+    -0.005118267610669136
+  ],
+  "joints_tested": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10
+  ],
+  "frequency_hz_config": 30,
+  "chirp_amp_deg": 4.0,
+  "chirp_f_start_hz": 0.5,
+  "chirp_f_end_hz": 25.0
+}
