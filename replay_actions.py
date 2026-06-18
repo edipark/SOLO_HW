@@ -44,6 +44,7 @@ from utils.action_transform import (
     joint_limits_from_config,
 )
 from utils.timing import RateController
+from utils.logger import ReplayLogger
 
 NUM_JOINTS = 12
 
@@ -123,6 +124,8 @@ def main() -> None:
                         help="Parse and time replay without writing to servos")
     parser.add_argument("--no-home", action="store_true",
                         help="Skip return-to-home after replay finishes")
+    parser.add_argument("--log", action="store_true",
+                        help="Log commanded targets and measured positions to CSV")
     args = parser.parse_args()
 
     # --- Load config ---
@@ -156,6 +159,12 @@ def main() -> None:
     print(f"[replay] loops={args.loops}")
     if args.dry_run:
         print("[replay] DRY-RUN — no servo commands will be sent")
+
+    # --- Setup logger ---
+    replay_logger = None
+    if args.log:
+        replay_logger = ReplayLogger(log_dir="logs", num_joints=NUM_JOINTS)
+        print(f"[replay] Logging to {replay_logger.filepath}")
 
     # Pre-compute all joint targets so there is no per-step Python overhead
     # inside the tight loop.
@@ -209,16 +218,26 @@ def main() -> None:
 
             target = targets_all[step]
 
+            # Read current positions before sending new target (for logging)
+            if dxl and replay_logger:
+                pos_meas = dxl.read_positions()
+            elif replay_logger:
+                pos_meas = np.zeros(NUM_JOINTS, dtype=np.float32)
+
             if dxl:
                 dxl.write_position_targets(target)
 
             overrun = rate.sleep()
+            loop_dt_ms = rate.last_dt * 1000.0
+
+            if replay_logger:
+                replay_logger.log(loop_dt_ms, target, pos_meas)
+
             if overrun:
                 overrun_count += 1
-                dt_ms = rate.last_dt * 1000.0
-                if dt_ms > watchdog_warn_ms:
+                if loop_dt_ms > watchdog_warn_ms:
                     print(
-                        f"[replay] WARNING: step {step} loop took {dt_ms:.1f}ms "
+                        f"[replay] WARNING: step {step} loop took {loop_dt_ms:.1f}ms "
                         f"(target: {1000.0/freq:.1f}ms)"
                     )
 
@@ -244,6 +263,9 @@ def main() -> None:
             dxl.go_to_home()
             time.sleep(1.0)
         dxl.disconnect()
+
+    if replay_logger:
+        replay_logger.close()
 
     print("[replay] Done.")
 

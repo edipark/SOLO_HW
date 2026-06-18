@@ -21,7 +21,8 @@ dynamixel:
   compliance_margin: 1        # AX-18A register units; sim margin = 0.29° = 1 unit
   compliance_slope: 64        # Matches AX18AActuatorCfg.compliance_slope
   punch: 32                   # Matches AX18AActuatorCfg.punch default
-  torque_limit_ratio: 0.2    # Matches sim effort_limit = 1.8 * 0.96
+  torque_limit_ratio: 0.2
+
 
 model:
   window: 50                 # LSTM history window (must match training)

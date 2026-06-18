@@ -5,6 +5,49 @@ import os
 import time
 from datetime import datetime
 
+# ---------------------------------------------------------------------------
+# Replay logger
+# ---------------------------------------------------------------------------
+
+class ReplayLogger:
+    """Logs per-step replay data (commanded targets + measured positions) to CSV.
+
+    Schema: step, timestamp, loop_dt_ms, target_0..N-1, pos_0..N-1
+    """
+
+    def __init__(self, log_dir: str = "logs", num_joints: int = 12):
+        os.makedirs(log_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.filepath = os.path.join(log_dir, f"replay_{timestamp}.csv")
+        self.num_joints = num_joints
+
+        header = ["step", "timestamp", "loop_dt_ms"]
+        header += [f"target_{i}" for i in range(num_joints)]
+        header += [f"pos_{i}" for i in range(num_joints)]
+
+        self._file = open(self.filepath, "w", newline="")
+        self._writer = csv.writer(self._file)
+        self._writer.writerow(header)
+        self._step = 0
+
+    def log(self, loop_dt_ms: float, targets, positions):
+        """Write one row: targets and measured positions for this step."""
+        row = [self._step, time.time(), f"{loop_dt_ms:.2f}"]
+        row += [f"{v:.6f}" for v in targets]
+        row += [f"{v:.6f}" for v in positions]
+        self._writer.writerow(row)
+        self._step += 1
+
+    def close(self):
+        self._file.close()
+        print(f"[log] Saved {self._step} steps to {self.filepath}")
+
+
+# ---------------------------------------------------------------------------
+# Deploy logger
+# ---------------------------------------------------------------------------
+
+
 
 class CSVLogger:
     """Logs per-step deployment data to a CSV file.
