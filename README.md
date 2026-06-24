@@ -3,6 +3,7 @@
 SOLO (State Estimation with Only Leg Observation) 학습 모델을 실제 DEXTRA 하체 로봇에 배포하는 패키지.
 
 ## Hardware
+<img src="assets/DEXTRA.jpg" width="100%"/>
 
 - **Robot**: DEXTRA lower-body (12 DOF)
 - **Actuators**: Dynamixel AX-18A × 12 (Protocol 1.0)
