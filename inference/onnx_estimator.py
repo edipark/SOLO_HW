@@ -7,8 +7,6 @@ This wrapper manages the sliding-window history buffer in numpy,
 matching the play_teacher_with_estimator.py pattern (torch.roll → FIFO).
 """
 
-import os
-
 import numpy as np
 import onnxruntime as ort
 
@@ -27,26 +25,6 @@ class LSTMEstimatorONNX:
         # History buffer: (1, window, encoder_dim) — zero-initialized
         self.history = np.zeros((1, window, encoder_dim), dtype=np.float32)
         self.valid_count = 0
-
-        # Auto-load init history from models/lstm_init_history.npy (generated
-        # by export_to_onnx.py).  If found, the LSTM starts with synthetic
-        # zero-pose rollout context instead of a cold-start all-zero buffer.
-        self._init_history: np.ndarray | None = None
-        init_path = os.path.join(
-            os.path.dirname(os.path.abspath(onnx_path)), "lstm_init_history.npy"
-        )
-        if os.path.exists(init_path):
-            init_h = np.load(init_path).astype(np.float32)
-            if init_h.shape == (window, encoder_dim):
-                self._init_history = init_h
-                self.history[0] = init_h
-                self.valid_count = window
-                print(f"[estimator] LSTM init history loaded: {init_path}")
-            else:
-                print(
-                    f"[estimator] WARNING: lstm_init_history.npy shape "
-                    f"{init_h.shape} != ({window}, {encoder_dim}), ignored"
-                )
 
     def update_and_predict(self, encoder_obs: np.ndarray) -> np.ndarray:
         """Update history buffer and run LSTM estimator.
@@ -67,10 +45,6 @@ class LSTMEstimatorONNX:
         return result[0].flatten()
 
     def reset(self):
-        """Reset history buffer to init state (call on episode start/robot restart)."""
-        if self._init_history is not None:
-            self.history[0] = self._init_history
-            self.valid_count = self.window
-        else:
-            self.history[:] = 0.0
-            self.valid_count = 0
+        """Reset history buffer (call on episode start/robot restart)."""
+        self.history[:] = 0.0
+        self.valid_count = 0

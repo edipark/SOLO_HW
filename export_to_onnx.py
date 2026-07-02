@@ -120,57 +120,6 @@ def export_estimator(estimator, window: int, output_path: str):
 # ---------------------------------------------------------------------------
 
 
-def generate_lstm_init_history(
-    teacher: "TeacherPolicy",
-    estimator,
-    window: int,
-    output_path: str,
-    action_scale: float = 2.6180,
-    action_offset: float = 0.0,
-    control_dt: float = 1.0 / 30.0,
-) -> np.ndarray:
-    """Synthetic rollout from zero pose to pre-warm the LSTM history buffer.
-
-    Runs ``window`` steps of (teacher → LSTM estimator) starting from all-zero
-    joint positions.  Perfect tracking is assumed: joint_pos at the next step
-    equals the position target output by the teacher, and joint_vel is the
-    finite-difference of that target.
-
-    The resulting ``(window, ENCODER_DIM)`` array is saved to ``output_path``
-    and returned.  On hardware, ``LSTMEstimatorONNX`` auto-loads this file from
-    the same directory as the ONNX so the LSTM starts with realistic context
-    instead of an all-zero cold start.
-    """
-    teacher.eval()
-    estimator.eval()
-
-    history = torch.zeros(1, window, ENCODER_DIM)
-    joint_pos = torch.zeros(ACTION_DIM)
-    joint_vel = torch.zeros(ACTION_DIM)
-
-    with torch.no_grad():
-        for _ in range(window):
-            enc = torch.cat([joint_pos, joint_vel]).unsqueeze(0)  # (1, 24)
-
-            # FIFO shift — identical to play_teacher_with_estimator.py
-            history = torch.roll(history, -1, dims=1)
-            history[0, -1] = enc[0]
-
-            priv_est = estimator.predict_denormalized(history)   # (1, 19)
-            obs = torch.cat([enc, priv_est], dim=-1)             # (1, 43)
-            action = teacher(obs).clamp(-1.0, 1.0)               # (1, 12)
-
-            # Perfect-tracking: next pos = position target
-            new_pos = action_offset + action_scale * action[0]
-            joint_vel = (new_pos - joint_pos) / control_dt
-            joint_pos = new_pos
-
-    init_history = history[0].cpu().numpy().astype(np.float32)   # (window, 24)
-    np.save(output_path, init_history)
-    print(f"[export] LSTM init history → {output_path}  shape={init_history.shape}")
-    return init_history
-
-
 def verify_onnx(onnx_path: str, wrapper: nn.Module, dummy: torch.Tensor,
                 model_name: str) -> bool:
     try:
@@ -241,17 +190,13 @@ def main():
     teacher_wrapper, teacher_dummy = export_teacher(teacher, teacher_path)
     est_wrapper, est_dummy = export_estimator(estimator, window, estimator_path)
 
-    # --- LSTM init history (synthetic rollout from zero pose) ---
-    init_history_path = os.path.join(args.output_dir, "lstm_init_history.npy")
-    generate_lstm_init_history(teacher, estimator, window, init_history_path)
-
     # --- Verify ---
     print("\n--- Verification ---")
     ok1 = verify_onnx(teacher_path, teacher_wrapper, teacher_dummy, "Teacher")
     ok2 = verify_onnx(estimator_path, est_wrapper, est_dummy, "Estimator")
 
     # --- File sizes ---
-    for p in [teacher_path, estimator_path, init_history_path]:
+    for p in [teacher_path, estimator_path]:
         size_kb = os.path.getsize(p) / 1024
         print(f"  {os.path.basename(p)}: {size_kb:.1f} KB")
 
@@ -266,7 +211,6 @@ def main():
         "priv_dim": PRIV_DIM,
         "obs_dim": OBS_DIM,
         "action_dim": ACTION_DIM,
-        "lstm_init_history": "lstm_init_history.npy",
     }
     meta_path = os.path.join(args.output_dir, "export_meta.json")
     with open(meta_path, "w") as f:

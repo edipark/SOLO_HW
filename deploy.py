@@ -184,7 +184,12 @@ def main():
         filtered_vel = ema_alpha * raw_vel + (1.0 - ema_alpha) * filtered_vel
 
         # 3. Build encoder observation: [pos(12), vel(12)] = 24D
-        encoder_obs = np.concatenate([pos, filtered_vel]).astype(np.float32)
+        # action_signs를 곱해 hardware 부호 규약을 sim 부호 규약으로 변환.
+        # action_signs가 -1인 관절(R_Thigh, L_Calf, L_AnklePitch)은 hardware와
+        # sim의 양의 방향이 반대이므로, estimator/teacher에 넣기 전에 역변환 필요.
+        pos_sim = pos * action_signs
+        vel_sim = filtered_vel * action_signs
+        encoder_obs = np.concatenate([pos_sim, vel_sim]).astype(np.float32)
 
         # 4. LSTM estimator: history(50×24) → priv_est(19)
         priv_est = estimator.update_and_predict(encoder_obs)
