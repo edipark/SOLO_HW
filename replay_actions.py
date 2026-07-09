@@ -39,7 +39,6 @@ sys.path.insert(0, str(SOLO_WS_DIR))
 
 from hardware.dynamixel_interface import DynamixelInterface
 from utils.action_transform import (
-    action_signs_from_config,
     actions_to_joint_targets,
     joint_limits_from_config,
 )
@@ -133,7 +132,6 @@ def main() -> None:
     freq = args.freq if args.freq is not None else cfg["control"]["frequency_hz"]
     action_scale = float(cfg["control"]["action_scale"])
     action_offset = float(cfg["control"].get("action_offset", 0.0))
-    action_signs = action_signs_from_config(cfg)
     joint_lower, joint_upper = joint_limits_from_config(cfg["joints"])
     safety = cfg.get("safety", {})
     startup_hold_sec = float(safety.get("startup_hold_sec", 1.0))
@@ -168,11 +166,14 @@ def main() -> None:
 
     # Pre-compute all joint targets so there is no per-step Python overhead
     # inside the tight loop.
+    # NPZ actions are already recorded in hardware sign convention by the sim
+    # rollout script (sign inversion was applied before saving). Do NOT apply
+    # action_signs again here — that would double-invert and cancel the
+    # correction.
     targets_all = np.stack(
         [
             actions_to_joint_targets(actions[i], action_scale, action_offset,
-                                     joint_lower, joint_upper,
-                                     action_signs=action_signs)
+                                     joint_lower, joint_upper)
             for i in range(total_frames)
         ],
         axis=0,
