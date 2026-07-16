@@ -94,6 +94,12 @@ def main():
     action_offset = cfg["control"]["action_offset"]
     window = cfg["model"]["window"]
     safety = cfg["safety"]
+    max_target_step_rad = float(safety.get("max_target_step_rad", 0.05))
+    max_tracking_error_rad = float(safety.get("max_tracking_error_rad", 0.25))
+    if max_target_step_rad <= 0.0:
+        raise ValueError("safety.max_target_step_rad must be positive")
+    if max_tracking_error_rad <= 0.0:
+        raise ValueError("safety.max_tracking_error_rad must be positive")
     vel_filter_cfg = cfg.get("velocity_filter", {})
     ema_alpha = vel_filter_cfg.get("alpha", 0.2) if vel_filter_cfg.get("type") == "ema" else 1.0
 
@@ -106,6 +112,8 @@ def main():
 
     print(f"[deploy] Config: {freq}Hz, action_scale={action_scale}, window={window}")
     print(f"[deploy] Teacher: {teacher_path}")
+    print(f"[deploy] Target safety: max_step={max_target_step_rad:.3f}rad, "
+          f"max_tracking_error={max_tracking_error_rad:.3f}rad")
     print(f"[deploy] Estimator: {estimator_path}")
     if args.dry_run:
         print("[deploy] DRY-RUN mode — no servo commands will be sent")
@@ -147,6 +155,9 @@ def main():
     else:
         prev_pos = np.zeros(NUM_JOINTS, dtype=np.float32)
 
+    # Start the command trajectory at the measured pose so the first policy
+    # action cannot create an instantaneous position-target jump.
+    previous_command = prev_pos.copy()
     prev_time = time.monotonic()
     filtered_vel = np.zeros(NUM_JOINTS, dtype=np.float32)
     velocity_initialized = False
@@ -201,7 +212,7 @@ def main():
         action = policy.predict(obs)
 
         # 7. Match policy action scaling and safety clipping used by bring-up tools
-        targets = actions_to_joint_targets(
+        desired_targets = actions_to_joint_targets(
             action,
             action_scale=action_scale,
             action_offset=action_offset,
@@ -210,10 +221,32 @@ def main():
             action_signs=action_signs,
         )
 
+        # Limit target slew relative to the command actually sent last step.
+        command_delta = np.clip(
+            desired_targets - previous_command,
+            -max_target_step_rad,
+            max_target_step_rad,
+        )
+        targets = previous_command + command_delta
+
+        # Prevent the command trajectory from running away when a physical
+        # joint cannot keep up with the requested motion.
+        tracking_delta = np.clip(
+            targets - pos,
+            -max_tracking_error_rad,
+            max_tracking_error_rad,
+        )
+        targets = np.clip(
+            pos + tracking_delta,
+            joint_lower,
+            joint_upper,
+        ).astype(np.float32)
+
         # 8. Write to servos
         if dxl:
             dxl.write_position_targets(targets)
 
+        previous_command = targets.copy()
         # 9. Log
         loop_dt_ms = (time.monotonic() - t0) * 1000
         if logger:
