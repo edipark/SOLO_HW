@@ -35,8 +35,8 @@ safety:
   max_position_rad: 2.6180   # 5π/6 — absolute position limit (matches sim)
   startup_hold_sec: 2.0      # Hold default pose before starting policy
 
-  max_target_step_rad: 0.05  # Max command change per 30 Hz policy step
-  max_tracking_error_rad: 0.25 # Max command distance from measured joint position
+  max_target_step_rad: 0.2  # Max command change per 30 Hz policy step
+  max_tracking_error_rad: 0.2 # Max command distance from measured joint position
 velocity_filter:
   type: "ema"                # Exponential Moving Average for finite-diff velocity
   alpha: 0.2                 # EMA smoothing factor (0=max smoothing, 1=no filter)
